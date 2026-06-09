@@ -36,6 +36,9 @@ local CLASS_COLORS = {
 -- 兼容函数
 local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 
+-- 字符串
+local titleText = "聊天过滤 v" .. GetAddOnMetadata("ChatFilter", "Version") .. ", 左键密语，右键拷贝消息，命令 /cf"
+
 -- 初始化函数
 function ChatFilter:Init()
     self:LoadKeywords()
@@ -96,7 +99,7 @@ function ChatFilter:CreateFilterFrame()
     self.frame.title = self.frame:CreateFontString(nil, "OVERLAY")
     self.frame.title:SetFontObject("GameFontHighlight")
     self.frame.title:SetPoint("LEFT", self.frame.TitleBg, "LEFT", 5, 0)
-    self.frame.title:SetText("聊天过滤 v" .. GetAddOnMetadata("ChatFilter", "Version"))
+    self.frame.title:SetText(titleText)
 
     -- 关闭按钮
     self.frame.CloseButton:SetScript("OnClick", function()
