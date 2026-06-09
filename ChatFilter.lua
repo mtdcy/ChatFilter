@@ -9,6 +9,7 @@ local ChatFilter = {
     content = nil,
     autoScroll = true,
     latestButton = nil,
+    resizeButton = nil,
     maxLines = 100,  -- 最大显示行数
     lastMessages = {},  -- 用于存储每个发言者的最后一条消息
     enabled = false,  -- 总开关状态
@@ -31,6 +32,9 @@ local CLASS_COLORS = {
     ["WARLOCK"] = {0.58, 0.51, 0.79},
     ["WARRIOR"] = {0.78, 0.61, 0.43},
 }
+
+-- 兼容函数
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 
 -- 初始化函数
 function ChatFilter:Init()
@@ -77,7 +81,7 @@ end
 -- 创建过滤框体
 function ChatFilter:CreateFilterFrame()
     if self.frame then return end
-    
+
     -- 主框体
     self.frame = CreateFrame("Frame", "ChatFilterFrame", UIParent, "BasicFrameTemplateWithInset")
     self.frame:SetSize(400, 500)
@@ -92,7 +96,7 @@ function ChatFilter:CreateFilterFrame()
     self.frame.title = self.frame:CreateFontString(nil, "OVERLAY")
     self.frame.title:SetFontObject("GameFontHighlight")
     self.frame.title:SetPoint("LEFT", self.frame.TitleBg, "LEFT", 5, 0)
-    self.frame.title:SetText("聊天过滤")
+    self.frame.title:SetText("聊天过滤 v" .. GetAddOnMetadata("ChatFilter", "Version"))
 
     -- 关闭按钮
     self.frame.CloseButton:SetScript("OnClick", function()
@@ -111,8 +115,12 @@ function ChatFilter:CreateFilterFrame()
     self.scrollFrame:SetScrollChild(self.content)
 
     self.content:SetScript("OnSizeChanged", function(_, width, height)
+        self:ReorderMessages()
     end)
 
+    self.scrollFrame:SetScript("OnSizeChanged", function(_, width, height)
+        self.content:SetWidth(width)
+    end)
 
     -- 滚动事件
     self.scrollFrame:EnableMouseWheel(true)
@@ -143,6 +151,47 @@ function ChatFilter:CreateFilterFrame()
         ChatFilter:ClearAllRecords()
     end)
 
+    -- "暂停"按钮
+    self.pauseButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
+    self.pauseButton:SetSize(80, 22)
+    self.pauseButton:SetPoint("LEFT", self.clearButton, "RIGHT", 4, 0)
+    self.pauseButton:SetText("暂停")
+    self.pauseButton:SetScript("OnClick", function()
+        if ChatFilter.enabled then
+            ChatFilter.enabled = false
+            ChatFilter.pauseButton:SetText("继续")
+        else
+            ChatFilter.enabled = true
+            ChatFilter.pauseButton:SetText("暂停")
+        end
+    end)
+
+    -- 缩放功能
+    self.frame:SetResizable(true)
+    self.frame:SetResizeBounds(100, 100, 800, 800)
+    self.resizeButton = CreateFrame("Button", nil, self.frame)
+    self.resizeButton:SetSize(16, 16)
+    self.resizeButton:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
+
+    -- 添加贴图
+    local texture = self.resizeButton:CreateTexture()
+    texture:SetAllPoints()
+    texture:SetTexture([[Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up]])
+    self.resizeButton:SetNormalTexture(texture)
+
+    -- 缩放逻辑
+    self.resizeButton:SetScript("OnMouseDown", function()
+        -- 开始缩放：参数为 "BOTTOMRIGHT" 表示拖动右下角调整大小
+        ChatFilter.frame:StartSizing("BOTTOMRIGHT")
+    end)
+
+    self.resizeButton:SetScript("OnMouseUp", function()
+        -- 停止缩放
+        ChatFilter.frame:StopMovingOrSizing()
+        -- 刷新内容
+        ChatFilter.content:SetWidth(self.scrollFrame:GetWidth())
+    end)
+
     self.frame:Hide()
 end
 
@@ -161,7 +210,7 @@ function ChatFilter:UpdateScrollState()
     local currentScroll = scrollFrame:GetVerticalScroll()
     local maxScroll = scrollFrame:GetVerticalScrollRange()
     self.autoScroll = (currentScroll >= maxScroll - 1)
-    
+
     if self.autoScroll then
         self.latestButton:Hide()
     else
@@ -213,13 +262,16 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
 
     self:CleanOldMessages()  -- 清理旧消息
 
+    -- 去除服务器名
+    sender = string.match(sender, "(.-)%-")
+
     table.insert(ChatFilterDB.recentMessages, 1, {
         event = event,
         message = message,
         sender = sender,
         time = time()
     })
-    
+
     if #ChatFilterDB.recentMessages > 3000 then
         table.remove(ChatFilterDB.recentMessages)
     end
@@ -291,7 +343,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
             -- 更新现有消息的时间戳
             self.lastMessages[sender].time = currentTime
             self.lastMessages[sender].timeString:SetText(currentTime)
-            
+
             self:ReorderMessages()
             return
         else
@@ -316,7 +368,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
     fullMessage:SetSpacing(2)
 
     local r, g, b = self:GetClassColor(sender)
-    local coloredName = string.format("|cFF%02X%02X%02X%s|r", r*255, g*255, b*255, sender)
+    local coloredName = string.format("[|cFF%02X%02X%02X%s|r]", r*255, g*255, b*255, sender)
 
     local highlightedMessage = self:HighlightKeywords(message)
 
@@ -464,7 +516,7 @@ function ChatFilter:UpdateScrollState()
     local currentScroll = self.scrollFrame:GetVerticalScroll()
     local maxScroll = math.max(self.content:GetHeight() - self.scrollFrame:GetHeight(), 0)
     self.autoScroll = (currentScroll >= maxScroll - 1)
-    
+
     if self.autoScroll then
         self.latestButton:Hide()
     else
@@ -477,7 +529,7 @@ function ChatFilter:ToggleFrame()
     if not self.frame then
         self:CreateFilterFrame()
     end
-    
+
     self.enabled = not self.enabled
     ChatFilterDB.enabled = self.enabled
     if self.enabled then
@@ -534,7 +586,7 @@ end
 function ChatFilter:CleanOldMessages()
     local currentTime = time()
     local oneDayAgo = currentTime - (24 * 60 * 60)  -- 24小时前的时间戳
-    
+
     local i = 1
     while i <= #ChatFilterDB.recentMessages do
         if ChatFilterDB.recentMessages[i].time < oneDayAgo then
@@ -607,7 +659,7 @@ end
 function ChatFilter:DebugKeywords()
     self:DebugPrint("当前内存中的关键词列表:")
     self:ShowKeywordSets()
-    
+
     self:DebugPrint("ChatFilterDB中的关键词列表:")
     if not ChatFilterDB.keywords or #ChatFilterDB.keywords == 0 then
         self:DebugPrint("ChatFilterDB中无关键词")
@@ -636,7 +688,7 @@ SlashCmdList["CHATFILTER"] = function(msg)
     elseif command == "add" and arg ~= "" then
         -- 将中文符号转换为英文符号
         arg = arg:gsub("，", ","):gsub("；", ";")
-        
+
         local keywords = {}
         for andGroup in arg:gmatch("([^;]+)") do
             local orGroup = {}
@@ -670,3 +722,5 @@ end
 
 -- 初始化插件
 ChatFilter:Init()
+
+-- vim:ft=lua:ts=4:sw=4
