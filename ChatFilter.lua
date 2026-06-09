@@ -1,8 +1,11 @@
 -- 在文件开头添加
 ChatFilterDB = ChatFilterDB or {}
 
+-- 兼容函数
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+
 local ChatFilter = {
-    version = "3.1",
+    version = GetAddOnMetadata("ChatFilter", "Version"),
     keywords = {},
     frame = nil,
     scrollFrame = nil,
@@ -33,11 +36,8 @@ local CLASS_COLORS = {
     ["WARRIOR"] = {0.78, 0.61, 0.43},
 }
 
--- 兼容函数
-local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
-
 -- 字符串
-local titleText = "聊天过滤 v" .. GetAddOnMetadata("ChatFilter", "Version") .. ", 左键密语，右键拷贝消息，命令 /cf"
+local titleText = "聊天过滤 v" .. ChatFilter.version .. ", 左键密语，右键拷贝消息，命令 /cf"
 
 -- 初始化函数
 function ChatFilter:Init()
