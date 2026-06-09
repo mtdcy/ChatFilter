@@ -18,6 +18,7 @@ local ChatFilter = {
     enabled = false,  -- 总开关状态
     debugMode = true,  -- 调试模式
     playSound = true, -- 默认开启音频提醒
+    soundButton = nil, -- 声音复选框
 }
 
 -- 职业颜色映射
@@ -41,10 +42,15 @@ local titleText = "聊天过滤 v" .. ChatFilter.version .. ", 左键密语，�
 
 -- 初始化函数
 function ChatFilter:Init()
-    self:LoadKeywords()
-    self:CreateFilterFrame()
-    self:RegisterEvents()
+    -- 加载数据库
     self.enabled = ChatFilterDB.enabled or false
+    self:LoadKeywords()
+
+    -- 创建窗口
+    self:CreateFilterFrame()
+
+    -- 注册事件
+    self:RegisterEvents()
 
     -- 清理缓存的消息，只保留最近的100条
     if ChatFilterDB.recentMessages then
@@ -167,6 +173,15 @@ function ChatFilter:CreateFilterFrame()
             ChatFilter.enabled = true
             ChatFilter.pauseButton:SetText("暂停")
         end
+    end)
+
+    -- "声音"按钮
+    self.soundButton = CreateFrame("CheckButton", nil, self.frame, "InterfaceOptionsCheckButtonTemplate")
+    self.soundButton:SetPoint("LEFT", self.pauseButton, "RIGHT", 8, 0)
+    self.soundButton:SetChecked(self.playSound)
+    self.soundButton.text:SetText("声音")
+    self.soundButton:SetScript("OnClick", function()
+        ChatFilter:ToggleSound()
     end)
 
     -- 缩放功能
@@ -338,7 +353,6 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
     end
 
     local currentTime = date("%H:%M")
-    local isNewMessage = false
 
     -- 检查是否是重复消息
     if self.lastMessages[sender] then
@@ -354,10 +368,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
             self.lastMessages[sender].line:Hide()
             self.lastMessages[sender].line:SetParent(nil)
             self.lastMessages[sender] = nil
-            isNewMessage = true
         end
-    else
-        isNewMessage = true
     end
 
     local line = CreateFrame("Frame", nil, self.content)
@@ -384,7 +395,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
 
     -- 计算并设置行高
     fullMessage:SetWidth(line:GetWidth() - 60)
-    local messageHeight = fullMessage:GetStringHeight() + 10
+    local messageHeight = fullMessage:GetStringHeight() + 5
     line:SetHeight(messageHeight)
 
     -- 添加点击角色名称的功能
@@ -416,7 +427,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
     end
 
     -- 播放音频提醒
-    if isNewMessage and self.playSound then
+    if self.playSound then
         PlaySound(SOUNDKIT.TELL_MESSAGE)
     end
 end
@@ -424,6 +435,7 @@ end
 -- 添加一个新的命令来切换音频提醒
 function ChatFilter:ToggleSound()
     self.playSound = not self.playSound
+    self.soundButton:SetChecked(self.playSound)
     if self.playSound then
         print("聊天过滤器音频提醒已开启")
     else
