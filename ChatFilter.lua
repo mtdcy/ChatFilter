@@ -389,8 +389,14 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
     local nameButton = CreateFrame("Button", nil, line)
     nameButton:SetPoint("TOPLEFT", fullMessage, "TOPLEFT", 0, 0)
     nameButton:SetSize(nameLength, fullMessage:GetStringHeight())
-    nameButton:SetScript("OnClick", function()
-        ChatFrame_OpenChat("/w " .. sender .. " ")
+
+    nameButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    nameButton:SetScript("OnClick", function(_, button)
+        if button == "RightButton" then
+            ChatFrame_OpenChat("/s " .. message)
+        else
+            ChatFrame_OpenChat("/w " .. sender .. " ")
+        end
     end)
 
     self.lastMessages[sender] = {
