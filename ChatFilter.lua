@@ -124,11 +124,6 @@ function ChatFilter:CreateFilterFrame()
     self.scrollFrame:SetScrollChild(self.content)
 
     self.content:SetScript("OnSizeChanged", function(_, width, height)
-        self:ReorderMessages()
-    end)
-
-    self.scrollFrame:SetScript("OnSizeChanged", function(_, width, height)
-        self.content:SetWidth(width)
     end)
 
     -- 滚动事件
@@ -206,11 +201,32 @@ function ChatFilter:CreateFilterFrame()
     self.resizeButton:SetScript("OnMouseUp", function()
         -- 停止缩放
         ChatFilter.frame:StopMovingOrSizing()
-        -- 刷新内容
-        ChatFilter.content:SetWidth(self.scrollFrame:GetWidth())
+    end)
+
+    -- 监听窗口大小变化
+    self.frame:SetScript("OnSizeChanged", function(_, width, height)
+        self:OnSizeChanged()
     end)
 
     self.frame:Hide()
+end
+
+-- 更新窗口大小
+function ChatFilter:OnSizeChanged()
+    if self.resizeTimer then
+        self.resizeTimer:Cancel()
+    end
+
+    self.resizeTimer = C_Timer.After(0.5, function()
+        -- 手动调整 content 大小
+        self.content:SetWidth(self.scrollFrame:GetWidth())
+
+        -- 刷新消息显示
+        local playSound = self.playSound 
+        self.playSound = false      -- 临时关闭声音
+        self:RefreshFilteredMessages()
+        self.playSound = playSound  -- 恢复声音
+    end)
 end
 
 -- 更新 ScrollToBottom 函数
