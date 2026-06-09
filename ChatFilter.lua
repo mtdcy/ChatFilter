@@ -52,16 +52,6 @@ function ChatFilter:Init()
     -- 注册事件
     self:RegisterEvents()
 
-    -- 清理缓存的消息，只保留最近的100条
-    if ChatFilterDB.recentMessages then
-        local messagesToKeep = math.min(100, #ChatFilterDB.recentMessages)
-        for i = #ChatFilterDB.recentMessages, messagesToKeep + 1, -1 do
-            table.remove(ChatFilterDB.recentMessages, i)
-        end
-    else
-        ChatFilterDB.recentMessages = {}
-    end
-
     if self.enabled then
         self.frame:Show()
         self:RefreshFilteredMessages()
@@ -299,17 +289,6 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
     -- 去除服务器名
     sender = string.match(sender, "(.-)%-")
 
-    table.insert(ChatFilterDB.recentMessages, 1, {
-        event = event,
-        message = message,
-        sender = sender,
-        time = time()
-    })
-
-    if #ChatFilterDB.recentMessages > 3000 then
-        table.remove(ChatFilterDB.recentMessages)
-    end
-
     for _, keywordSet in ipairs(self.keywords) do
         if self:ContainsKeyword(message, keywordSet) then
             if guid then
@@ -318,6 +297,7 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
                     self:CacheClass(sender, class)
                 end
             end
+
             self:DisplayFilteredMessage(event, message, sender)
             break
         end
@@ -367,6 +347,14 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
         self:DebugPrint("Frame or content not available")
         return 
     end
+
+    -- 只保留过滤后的消息，不然消息量太大
+    table.insert(ChatFilterDB.recentMessages, 1, {
+        event = event,
+        message = message,
+        sender = sender,
+        time = time()
+    })
 
     local currentTime = date("%H:%M")
 
