@@ -363,9 +363,14 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
     line:SetWidth(self.content:GetWidth())
     line:SetHeight(20) -- 设置一个初始高度，稍后会根据实际内容调整
 
+    local timeString = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    timeString:SetPoint("TOPLEFT", line, "TOPLEFT", 4, -4)
+    timeString:SetText(timeText)
+    timeString:SetTextColor(0.7, 0.7, 0.7)
+
     local fullMessage = line:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fullMessage:SetPoint("TOPLEFT", line, "TOPLEFT", 5, -5)
-    fullMessage:SetPoint("RIGHT", line, "RIGHT", -55, 0)
+    fullMessage:SetPoint("TOPLEFT", line, "TOPLEFT", 36, -4)
+    fullMessage:SetPoint("RIGHT", line, "RIGHT", -4, 0)
     fullMessage:SetJustifyH("LEFT")
     fullMessage:SetSpacing(2)
 
@@ -375,11 +380,6 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
     local highlightedMessage = self:HighlightKeywords(message)
 
     fullMessage:SetText(coloredName .. ": |cFFFFFFFF" .. highlightedMessage .. "|r")
-
-    local timeString = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    timeString:SetPoint("TOPRIGHT", line, "TOPRIGHT", -5, -5)
-    timeString:SetText(timeText)
-    timeString:SetTextColor(0.7, 0.7, 0.7)
 
     -- 计算并设置行高
     fullMessage:SetWidth(line:GetWidth() - 60)
