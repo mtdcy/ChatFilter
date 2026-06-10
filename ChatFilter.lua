@@ -310,7 +310,7 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
     self:CleanOldMessages()  -- 清理旧消息
 
     -- 去除服务器名
-    sender = string.match(sender, "(.-)%-")
+    local senderName = string.match(sender, "(.-)%-")
 
     for _, keywordSet in ipairs(self.keywords) do
         if self:ContainsKeyword(message, keywordSet) then
@@ -320,7 +320,7 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
             table.insert(ChatFilterDB.recentMessages, 1, {
                 event = event,
                 message = message,
-                sender = sender,
+                sender = senderName or sender,
                 class = class,
                 time = time()
             })
@@ -367,7 +367,10 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
 
     -- 检查是否是重复消息
     if self.lastMessages[sender] then
-        if self.lastMessages[sender].message == message then
+        if self.lastMessages[sender].ignored then
+            -- 不再更新被忽略的目标
+            return
+        elseif self.lastMessages[sender].message == message then
             -- 更新现有消息的时间戳
             self.lastMessages[sender].time = time
             self.lastMessages[sender].timeString:SetText(timeText)
@@ -389,7 +392,7 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
     local timeString = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     timeString:SetPoint("TOPLEFT", line, "TOPLEFT", 0, -4)
     timeString:SetText(timeText)
-    timeString:SetTextColor(0.7, 0.7, 0.7)
+    timeString:SetTextColor(0.8, 0.8, 0.8)
 
     local fullMessage = line:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     fullMessage:SetPoint("TOPLEFT", line, "TOPLEFT", timeString:GetWidth() + 4, -4)
@@ -419,16 +422,25 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
     nameButton:SetScript("OnClick", function(_, button)
         if button == "RightButton" then
             ChatFrame_OpenChat("/s " .. message)
+        elseif IsShiftKeyDown() then
+            -- Shift: 忽略指定目标
+            self.lastMessages[sender].ignored = true
+            -- 给时间标签做个标记
+            self.lastMessages[sender].timeString:SetAlpha(0.4)
+            self.lastMessages[sender].fullMessage:SetAlpha(0.4)
+            self:DebugPrint("ChatFilter: 忽略 " .. sender)
         else
             ChatFrame_OpenChat("/w " .. sender .. " ")
         end
     end)
 
     self.lastMessages[sender] = {
+        ignored = false,
         line = line,
         message = message,
         time = time,
-        timeString = timeString
+        timeString = timeString,
+        fullMessage = fullMessage,
     }
 
     self:ReorderMessages()
