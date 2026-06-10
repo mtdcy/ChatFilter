@@ -198,6 +198,19 @@ function ChatFilter:CreateFilterFrame()
         self:OnSizeChanged()
     end)
 
+    -- 美化：使用 ElvUI 材质
+    if ElvUI then
+        -- 获取 ElvUI 的皮肤模块 (Skins)
+        local E, _ = unpack(ElvUI) -- 获取 ElvUI 的核心对象
+        local S = E:GetModule('Skins')
+
+        S:HandlePortraitFrame(self.frame)
+        S:HandleButton(self.clearButton)
+        S:HandleButton(self.pauseButton)
+        S:HandleCheckBox(self.soundButton)
+        S:HandleButton(self.latestButton)
+    end
+
     self.frame:Hide()
 end
 
@@ -364,13 +377,13 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
     line:SetHeight(20) -- 设置一个初始高度，稍后会根据实际内容调整
 
     local timeString = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    timeString:SetPoint("TOPLEFT", line, "TOPLEFT", 4, -4)
+    timeString:SetPoint("TOPLEFT", line, "TOPLEFT", 0, -4)
     timeString:SetText(timeText)
     timeString:SetTextColor(0.7, 0.7, 0.7)
 
     local fullMessage = line:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    fullMessage:SetPoint("TOPLEFT", line, "TOPLEFT", 36, -4)
-    fullMessage:SetPoint("RIGHT", line, "RIGHT", -4, 0)
+    fullMessage:SetPoint("TOPLEFT", line, "TOPLEFT", timeString:GetWidth() + 4, -4)
+    fullMessage:SetPoint("RIGHT", line, "RIGHT", 0, 0)
     fullMessage:SetJustifyH("LEFT")
     fullMessage:SetSpacing(2)
 

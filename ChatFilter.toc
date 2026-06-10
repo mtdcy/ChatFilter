@@ -4,6 +4,6 @@
 ## Author: Charlie
 ## Version: 2.3.1
 ## SavedVariables: ChatFilterDB
-
+## OptionalDeps: ElvUI
 
 ChatFilter.lua
