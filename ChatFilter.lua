@@ -19,6 +19,7 @@ local ChatFilter = {
     debugMode = true,  -- 调试模式
     playSound = true, -- 默认开启音频提醒
     soundButton = nil, -- 声音复选框
+    minButton = nil,
 }
 
 -- 职业颜色映射
@@ -130,16 +131,24 @@ function ChatFilter:CreateFilterFrame()
     -- "跳转到最新"按钮
     self.latestButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
     self.latestButton:SetSize(100, 22)
-    self.latestButton:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -8, 6)
+    self.latestButton:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -8, 4)
     self.latestButton:SetText("跳转到最新")
     self.latestButton:SetScript("OnClick", function()
         ChatFilter:ScrollToBottom()
     end)
 
+    -- "最小化"按钮
+    self.minButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
+    self.minButton:SetSize(22, 22)
+    self.minButton:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 8, 4)
+    self.minButton:SetScript("OnClick", function(self)
+        ChatFilter:OnFrameMinimized()
+    end)
+
     -- "清除所有记录"按钮
     self.clearButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
     self.clearButton:SetSize(100, 22)
-    self.clearButton:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 8, 6)
+    self.clearButton:SetPoint("LEFT", self.minButton, "RIGHT", 4, 0)
     self.clearButton:SetText("清除所有")
     self.clearButton:SetScript("OnClick", function()
         ChatFilter:ClearAllRecords()
@@ -205,6 +214,7 @@ function ChatFilter:CreateFilterFrame()
         local S = E:GetModule('Skins')
 
         S:HandlePortraitFrame(self.frame)
+        S:HandleNextPrevButton(self.minButton)
         S:HandleButton(self.clearButton)
         S:HandleButton(self.pauseButton)
         S:HandleCheckBox(self.soundButton)
@@ -569,6 +579,28 @@ function ChatFilter:OnFrameClosed()
     self.enabled = false
     ChatFilterDB.enabled = false
     self:DebugPrint("Chat Filter 已禁用")
+end
+
+-- 处理窗口最小化
+function ChatFilter:OnFrameMinimized()
+    local texture = self.minButton:GetNormalTexture()
+    if self.minButton:GetParent() == UIParent then 
+        -- 恢复窗口
+        if texture then 
+            texture:SetRotation(math.rad(180))
+        end
+        self.frame:Show()
+        self.minButton:SetParent(self.frame)
+        self:DebugPrint("Chat Filter 恢复")
+    else
+        -- 最小化
+        if texture then
+            texture:SetRotation(math.rad(0))
+        end
+        self.minButton:SetParent(UIParent)
+        self.frame:Hide()
+        self:DebugPrint("Chat Filter 最小化")
+    end
 end
 
 -- 刷新过滤消息
