@@ -605,6 +605,7 @@ function ChatFilter:OnFrameMinimized()
         if texture then 
             texture:SetRotation(math.rad(180))
         end
+        self.enabled = ChatFilterDB.enabled -- 恢复原始状态
         self.frame:Show()
         self.minButton:SetParent(self.frame)
         Print("ChatFilter 已恢复")
@@ -613,6 +614,7 @@ function ChatFilter:OnFrameMinimized()
         if texture then
             texture:SetRotation(math.rad(0))
         end
+        self.enabled = false -- 暂停处理消息
         self.minButton:SetParent(UIParent)
         self.frame:Hide()
         Print("ChatFilter 已隐藏")
