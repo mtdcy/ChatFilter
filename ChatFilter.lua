@@ -312,7 +312,7 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
 
     for _, keywordSet in ipairs(self.keywords) do
         if self:ContainsKeyword(message, keywordSet) then
-            local class = guid and select(2, GetPlayerInfoByGUID(guid)) or (UnitExists(sender) and select(2, UnitClass(name)))
+            local class = guid and select(2, GetPlayerInfoByGUID(guid)) or (UnitExists(sender) and select(2, UnitClass(sender)))
 
             -- 只保留过滤后的消息，不然消息量太大
             table.insert(ChatFilterDB.recentMessages, 1, {
