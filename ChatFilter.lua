@@ -291,14 +291,18 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
 
     for _, keywordSet in ipairs(self.keywords) do
         if self:ContainsKeyword(message, keywordSet) then
-            if guid then
-                local _, class = GetPlayerInfoByGUID(guid)
-                if class then
-                    self:CacheClass(sender, class)
-                end
-            end
+            local class = guid and select(2, GetPlayerInfoByGUID(guid)) or (UnitExists(sender) and select(2, UnitClass(name)))
 
-            self:DisplayFilteredMessage(event, message, sender)
+            -- 只保留过滤后的消息，不然消息量太大
+            table.insert(ChatFilterDB.recentMessages, 1, {
+                event = event,
+                message = message,
+                sender = sender,
+                class = class,
+                time = time()
+            })
+
+            self:DisplayFilteredMessage(event, message, sender, class)
             break
         end
     end
@@ -324,37 +328,12 @@ function ChatFilter:ContainsKeyword(message, keywordSet)
     return setMatch
 end
 
--- 获取职业颜色
-function ChatFilter:GetClassColor(name)
-    local class = self:GetCachedClass(name) or (UnitExists(name) and select(2, UnitClass(name)))
-    return unpack(CLASS_COLORS[class] or {1, 1, 1})
-end
-
--- 缓存玩家职业信息
-ChatFilter.classCache = {}
-
-function ChatFilter:CacheClass(name, class)
-    self.classCache[name] = class
-end
-
-function ChatFilter:GetCachedClass(name)
-    return self.classCache[name]
-end
-
 -- 显示过滤后的消息
-function ChatFilter:DisplayFilteredMessage(event, message, sender)
+function ChatFilter:DisplayFilteredMessage(event, message, sender, class)
     if not self.frame or not self.frame:IsShown() or not self.content then 
         self:DebugPrint("Frame or content not available")
         return 
     end
-
-    -- 只保留过滤后的消息，不然消息量太大
-    table.insert(ChatFilterDB.recentMessages, 1, {
-        event = event,
-        message = message,
-        sender = sender,
-        time = time()
-    })
 
     local currentTime = date("%H:%M")
 
@@ -385,7 +364,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender)
     fullMessage:SetJustifyH("LEFT")
     fullMessage:SetSpacing(2)
 
-    local r, g, b = self:GetClassColor(sender)
+    local r, g, b = unpack(class and CLASS_COLORS[class] or {1, 1, 1})
     local coloredName = string.format("[|cFF%02X%02X%02X%s|r]", r*255, g*255, b*255, sender)
 
     local highlightedMessage = self:HighlightKeywords(message)
@@ -592,7 +571,7 @@ function ChatFilter:RefreshFilteredMessages()
             if not displayedSenders[messageInfo.sender] then
                 for _, keywordSet in ipairs(self.keywords) do
                     if self:ContainsKeyword(messageInfo.message, keywordSet) then
-                        self:DisplayFilteredMessage(messageInfo.event, messageInfo.message, messageInfo.sender)
+                        self:DisplayFilteredMessage(messageInfo.event, messageInfo.message, messageInfo.sender, messageInfo.class)
                         displayedSenders[messageInfo.sender] = true
                         break
                     end
