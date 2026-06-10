@@ -302,7 +302,7 @@ function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _
                 time = time()
             })
 
-            self:DisplayFilteredMessage(event, message, sender, class)
+            self:DisplayFilteredMessage(ChatFilterDB.recentMessages[1])
             break
         end
     end
@@ -329,20 +329,25 @@ function ChatFilter:ContainsKeyword(message, keywordSet)
 end
 
 -- 显示过滤后的消息
-function ChatFilter:DisplayFilteredMessage(event, message, sender, class)
+function ChatFilter:DisplayFilteredMessage(messageInfo)
     if not self.frame or not self.frame:IsShown() or not self.content then 
         self:DebugPrint("Frame or content not available")
         return 
     end
 
-    local currentTime = date("%H:%M")
+    local message = messageInfo.message
+    local sender = messageInfo.sender
+    local class = messageInfo.class
+    local time = messageInfo.time
+
+    local timeText = date("%H:%M", time)
 
     -- 检查是否是重复消息
     if self.lastMessages[sender] then
         if self.lastMessages[sender].message == message then
             -- 更新现有消息的时间戳
-            self.lastMessages[sender].time = currentTime
-            self.lastMessages[sender].timeString:SetText(currentTime)
+            self.lastMessages[sender].time = time
+            self.lastMessages[sender].timeString:SetText(timeText)
 
             self:ReorderMessages()
             return
@@ -373,7 +378,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender, class)
 
     local timeString = line:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     timeString:SetPoint("TOPRIGHT", line, "TOPRIGHT", -5, -5)
-    timeString:SetText(currentTime)
+    timeString:SetText(timeText)
     timeString:SetTextColor(0.7, 0.7, 0.7)
 
     -- 计算并设置行高
@@ -399,7 +404,7 @@ function ChatFilter:DisplayFilteredMessage(event, message, sender, class)
     self.lastMessages[sender] = {
         line = line,
         message = message,
-        time = currentTime,
+        time = time,
         timeString = timeString
     }
 
@@ -571,7 +576,7 @@ function ChatFilter:RefreshFilteredMessages()
             if not displayedSenders[messageInfo.sender] then
                 for _, keywordSet in ipairs(self.keywords) do
                     if self:ContainsKeyword(messageInfo.message, keywordSet) then
-                        self:DisplayFilteredMessage(messageInfo.event, messageInfo.message, messageInfo.sender, messageInfo.class)
+                        self:DisplayFilteredMessage(messageInfo)
                         displayedSenders[messageInfo.sender] = true
                         break
                     end
