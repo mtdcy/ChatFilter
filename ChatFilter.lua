@@ -48,6 +48,9 @@ end
 
 -- 初始化函数
 function ChatFilter:Init()
+    -- 初始化数据库
+    ChatFilterDB.recentMessages = ChatFilterDB.recentMessages or {}
+
     -- 加载数据库
     self.enabled = ChatFilterDB.enabled or false
     self:LoadKeywords()
@@ -57,6 +60,9 @@ function ChatFilter:Init()
 
     -- 注册事件
     self:RegisterEvents()
+
+    -- 清理旧消息
+    self:CleanOldMessages()
 
     if self.enabled then
         self.frame:Show()
@@ -304,8 +310,6 @@ end
 -- 处理聊天消息
 function ChatFilter:OnChatMessage(event, message, sender, _, _, _, _, _, _, _, _, _, guid)
     if not self.enabled then return end
-
-    self:CleanOldMessages()  -- 清理旧消息
 
     -- 去除服务器名
     local senderName = string.match(sender, "(.-)%-")
@@ -718,7 +722,6 @@ end
 -- 处理插件加载
 function ChatFilter:OnAddonLoaded(addonName)
     if addonName == "ChatFilter" then
-        ChatFilterDB.recentMessages = ChatFilterDB.recentMessages or {}
         self:Init()
     end
 end
