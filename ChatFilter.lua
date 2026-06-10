@@ -569,6 +569,9 @@ function ChatFilter:RefreshFilteredMessages()
     self.lastMessages = {}
     self.content:SetHeight(1)
 
+    -- 刷新时总是滚动到最新消息
+    self.autoScroll = true
+
     if ChatFilterDB.recentMessages then
         local displayedSenders = {}
         for i = #ChatFilterDB.recentMessages, 1, -1 do
