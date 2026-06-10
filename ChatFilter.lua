@@ -41,6 +41,11 @@ local CLASS_COLORS = {
 -- 字符串
 local titleText = "聊天过滤 v" .. ChatFilter.version .. ", 左键密语，右键拷贝消息，命令 /cf"
 
+-- 调试打印函数
+local function Print(message)
+    SELECTED_CHAT_FRAME:AddMessage(message, 0.7, 0.7, 0)
+end
+
 -- 初始化函数
 function ChatFilter:Init()
     -- 加载数据库
@@ -57,7 +62,7 @@ function ChatFilter:Init()
         self.frame:Show()
         self:RefreshFilteredMessages()
     end
-    self:DebugPrint("Chat Filter插件已加载。版本: " .. self.version)
+    Print("ChatFilter v" .. self.version .. " 已加载。")
     self:DebugKeywords()
 end
 
@@ -65,15 +70,14 @@ end
 function ChatFilter:LoadKeywords()
     if ChatFilterDB.keywords and #ChatFilterDB.keywords > 0 then
         self.keywords = ChatFilterDB.keywords
-        self:DebugPrint("已加载保存的关键词")
+        Print("ChatFilter 已加载关键词")
     else
         -- 默认关键词
         self.keywords = {
-            {{"10H", "10人"}, {"dz", "盗贼"}},
-            {{"25H", "25人"}, {"战斗", "破甲"}}
+            {{"MC", "风暴", "双龙"}, {"摸奖", "抽奖"}},
         }
         ChatFilterDB.keywords = self.keywords
-        self:DebugPrint("使用默认关键词")
+        Print("ChatFilter 加载默认关键词")
     end
     self:ShowKeywordSets()
 end
@@ -160,13 +164,7 @@ function ChatFilter:CreateFilterFrame()
     self.pauseButton:SetPoint("LEFT", self.clearButton, "RIGHT", 4, 0)
     self.pauseButton:SetText("暂停")
     self.pauseButton:SetScript("OnClick", function()
-        if ChatFilter.enabled then
-            ChatFilter.enabled = false
-            ChatFilter.pauseButton:SetText("继续")
-        else
-            ChatFilter.enabled = true
-            ChatFilter.pauseButton:SetText("暂停")
-        end
+        ChatFilter:OnFilterPaused()
     end)
 
     -- "声音"按钮
@@ -284,7 +282,7 @@ function ChatFilter:ClearAllRecords()
     self:UpdateScrollState()
 
     -- 提示用户
-    print("已清除所有筛选记录。")
+    Print("ChatFilter 已清除筛选记录。")
 end
 
 -- 注册事件
@@ -354,7 +352,7 @@ end
 -- 显示过滤后的消息
 function ChatFilter:DisplayFilteredMessage(messageInfo)
     if not self.frame or not self.frame:IsShown() or not self.content then 
-        self:DebugPrint("Frame or content not available")
+        Print("Frame or content not available")
         return 
     end
 
@@ -428,7 +426,7 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
             -- 给时间标签做个标记
             self.lastMessages[sender].timeString:SetAlpha(0.4)
             self.lastMessages[sender].fullMessage:SetAlpha(0.4)
-            self:DebugPrint("ChatFilter: 忽略 " .. sender)
+            Print("ChatFilter 已忽略目标：" .. sender)
         else
             ChatFrame_OpenChat("/w " .. sender .. " ")
         end
@@ -460,9 +458,9 @@ function ChatFilter:ToggleSound()
     self.playSound = not self.playSound
     self.soundButton:SetChecked(self.playSound)
     if self.playSound then
-        print("聊天过滤器音频提醒已开启")
+        Print("ChatFilter 声音提醒已开启")
     else
-        print("聊天过滤器音频提醒已关闭")
+        Print("ChatFilter 声音提醒已关闭")
     end
 end
 
@@ -515,13 +513,6 @@ function ChatFilter:UpdateScrollPosition()
     else
         local currentScroll = scrollFrame:GetVerticalScroll()
         scrollFrame:SetVerticalScroll(math.min(currentScroll, maxScroll))
-    end
-end
-
--- 添加调试打印函数
-function ChatFilter:DebugPrint(message)
-    if self.debugMode then
-        print("ChatFilter Debug: " .. message)
     end
 end
 
@@ -579,10 +570,10 @@ function ChatFilter:ToggleFrame()
     if self.enabled then
         self.frame:Show()
         self:RefreshFilteredMessages()
-        self:DebugPrint("Chat Filter 已启用")
+        Print("ChatFilter 已启用")
     else
         self.frame:Hide()
-        self:DebugPrint("Chat Filter 已禁用")
+        Print("ChatFilter 已禁用")
     end
 end
 
@@ -590,7 +581,20 @@ end
 function ChatFilter:OnFrameClosed()
     self.enabled = false
     ChatFilterDB.enabled = false
-    self:DebugPrint("Chat Filter 已禁用")
+    Print("ChatFilter 已禁用")
+end
+
+-- 处理暂停过滤消息
+function ChatFilter:OnFilterPaused()
+    if self.enabled then
+        self.enabled = false
+        self.pauseButton:SetText("继续")
+        Print("ChatFilter 消息过滤已暂停")
+    else
+        self.enabled = true
+        self.pauseButton:SetText("暂停")
+        Print("ChatFilter 消息过滤已恢复")
+    end
 end
 
 -- 处理窗口最小化
@@ -603,7 +607,7 @@ function ChatFilter:OnFrameMinimized()
         end
         self.frame:Show()
         self.minButton:SetParent(self.frame)
-        self:DebugPrint("Chat Filter 恢复")
+        Print("ChatFilter 已恢复")
     else
         -- 最小化
         if texture then
@@ -611,7 +615,7 @@ function ChatFilter:OnFrameMinimized()
         end
         self.minButton:SetParent(UIParent)
         self.frame:Hide()
-        self:DebugPrint("Chat Filter 最小化")
+        Print("ChatFilter 已隐藏")
     end
 end
 
@@ -677,12 +681,12 @@ end
 
 -- 显示所有关键词组合
 function ChatFilter:ShowKeywordSets()
-    self:DebugPrint("当前关键词组合列表:")
+    Print("ChatFilter 关键词列表:")
     if #self.keywords == 0 then
-        self:DebugPrint("无关键词")
+        Print("  无关键词")
     else
         for i, keywordSet in ipairs(self.keywords) do
-            self:DebugPrint(i .. ". " .. self:KeywordSetToString(keywordSet))
+            Print("  " .. i .. ". " .. self:KeywordSetToString(keywordSet))
         end
     end
 end
@@ -691,7 +695,7 @@ end
 function ChatFilter:AddKeywordSet(keywords)
     table.insert(self.keywords, keywords)
     ChatFilterDB.keywords = self.keywords
-    self:DebugPrint("已添加关键词组合: " .. self:KeywordSetToString(keywords))
+    Print("ChatFilter 已添加关键词: " .. self:KeywordSetToString(keywords))
     self:ShowKeywordSets()
     self:RefreshFilteredMessages()
 end
@@ -701,11 +705,11 @@ function ChatFilter:RemoveKeywordSet(index)
     if index > 0 and index <= #self.keywords then
         local removed = table.remove(self.keywords, index)
         ChatFilterDB.keywords = self.keywords
-        self:DebugPrint("已移除关键词组合: " .. self:KeywordSetToString(removed))
+        Print("ChatFilter 已移除关键词: " .. self:KeywordSetToString(removed))
         self:ShowKeywordSets()
         self:RefreshFilteredMessages()
     else
-        self:DebugPrint("无效的索引: " .. tostring(index))
+        Print("  无效的索引: " .. tostring(index))
     end
 end
 
@@ -717,24 +721,17 @@ function ChatFilter:OnAddonLoaded(addonName)
     end
 end
 
--- 调试打印函数
-function ChatFilter:DebugPrint(...)
-    if self.debugMode then
-        print(...)
-    end
-end
-
 -- 显示调试信息
 function ChatFilter:DebugKeywords()
-    self:DebugPrint("当前内存中的关键词列表:")
+    Print("ChatFilter 关键词列表:")
     self:ShowKeywordSets()
 
-    self:DebugPrint("ChatFilterDB中的关键词列表:")
+    Print("ChatFilterDB 关键词列表:")
     if not ChatFilterDB.keywords or #ChatFilterDB.keywords == 0 then
-        self:DebugPrint("ChatFilterDB中无关键词")
+        Print("  无关键词")
     else
         for i, keywordSet in ipairs(ChatFilterDB.keywords) do
-            self:DebugPrint(i .. ". " .. self:KeywordSetToString(keywordSet))
+            Print("  " .. i .. ". " .. self:KeywordSetToString(keywordSet))
         end
     end
 end
@@ -772,20 +769,20 @@ SlashCmdList["CHATFILTER"] = function(msg)
         if index then
             ChatFilter:RemoveKeywordSet(index)
         else
-            print("请提供有效的索引号")
+            Print("请提供有效的索引号")
         end
     elseif command == "debug" then
         ChatFilter.debugMode = not ChatFilter.debugMode
-        print("Chat Filter 调试模式: " .. (ChatFilter.debugMode and "开启" or "关闭"))
+        Print("ChatFilter 调试模式: " .. (ChatFilter.debugMode and "开启" or "关闭"))
     else
-        print("Chat Filter 命令:")
-        print("/cf toggle - 开启/关闭 Chat Filter")
-        print("/cf sound - 开启/关闭音频提醒")
-        print("/cf list - 显示所有关键词组合")
-        print("/cf add <关键词组1>;<关键词组2>... - 添加关键词组合")
-        print("/cf remove <索引> - 移除指定索引的关键词组合")
-        print("/cf debug - 切换调试模式")
-        print("注意: 每个关键词组内用逗号分隔，不同组之间用分号分隔")
+        Print("ChatFilter 命令:")
+        Print("  /cf toggle - 开启/关闭 ChatFilter")
+        Print("  /cf sound - 开启/关闭音频提醒")
+        Print("  /cf list - 显示所有关键词组合")
+        Print("  /cf add <关键词组1>;<关键词组2>... - 添加关键词组合")
+        Print("  /cf remove <索引> - 移除指定索引的关键词组合")
+        Print("  /cf debug - 切换调试模式")
+        Print("  注意: 每个关键词组内用逗号分隔，不同组之间用分号分隔")
     end
 end
 
