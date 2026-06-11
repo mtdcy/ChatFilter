@@ -11,15 +11,19 @@ local ChatFilter = {
     scrollFrame = nil,
     content = nil,
     autoScroll = true,
-    latestButton = nil,
-    resizeButton = nil,
     maxLines = 100,  -- 最大显示行数
     lastMessages = {},  -- 用于存储每个发言者的最后一条消息
     enabled = false,  -- 总开关状态
     debugMode = true,  -- 调试模式
     playSound = true, -- 默认开启音频提醒
-    soundButton = nil, -- 声音复选框
+   
+    -- Buttons
     minButton = nil,
+    clearButton = nil,
+    soundButton = nil, -- 声音复选框
+    lockButton = nil,
+    latestButton = nil,
+    resizeButton = nil,
 }
 
 -- 职业颜色映射
@@ -50,6 +54,7 @@ end
 function ChatFilter:Init()
     -- 初始化数据库
     ChatFilterDB.recentMessages = ChatFilterDB.recentMessages or {}
+    ChatFilterDB.locked = ChatFilterDB.locked or false
 
     -- 加载数据库
     self.enabled = ChatFilterDB.enabled or false
@@ -138,53 +143,62 @@ function ChatFilter:CreateFilterFrame()
         ChatFilter:UpdateScrollState()
     end)
 
-    -- "跳转到最新"按钮
-    self.latestButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
-    self.latestButton:SetSize(100, 22)
-    self.latestButton:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -8, 4)
-    self.latestButton:SetText("跳转到最新")
-    self.latestButton:SetScript("OnClick", function()
-        ChatFilter:ScrollToBottom()
-    end)
-
     -- "最小化"按钮
     self.minButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
     self.minButton:SetSize(22, 22)
     self.minButton:SetPoint("BOTTOMLEFT", self.frame, "BOTTOMLEFT", 8, 4)
-    self.minButton:SetScript("OnClick", function(self)
+    self.minButton:SetScript("OnClick", function()
         ChatFilter:OnFrameMinimized()
     end)
 
     -- "清除所有记录"按钮
     self.clearButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
-    self.clearButton:SetSize(100, 22)
-    self.clearButton:SetPoint("LEFT", self.minButton, "RIGHT", 4, 0)
-    self.clearButton:SetText("清除所有")
+    self.clearButton:SetText("清除记录")
+    self.clearButton:SetSize(self.clearButton:GetTextWidth() + 16, 22)
+    self.clearButton:SetPoint("LEFT", self.minButton, "RIGHT", 8, 0)
     self.clearButton:SetScript("OnClick", function()
         ChatFilter:ClearAllRecords()
     end)
 
     -- "暂停"按钮
     self.pauseButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
-    self.pauseButton:SetSize(80, 22)
-    self.pauseButton:SetPoint("LEFT", self.clearButton, "RIGHT", 4, 0)
     self.pauseButton:SetText("暂停")
+    self.pauseButton:SetSize(self.pauseButton:GetTextWidth() + 16, 22)
+    self.pauseButton:SetPoint("LEFT", self.clearButton, "RIGHT", 8, 0)
     self.pauseButton:SetScript("OnClick", function()
         ChatFilter:OnFilterPaused()
     end)
 
     -- "声音"按钮
     self.soundButton = CreateFrame("CheckButton", nil, self.frame, "InterfaceOptionsCheckButtonTemplate")
+    self.soundButton.text:SetText("声音")
     self.soundButton:SetPoint("LEFT", self.pauseButton, "RIGHT", 8, 0)
     self.soundButton:SetChecked(self.playSound)
-    self.soundButton.text:SetText("声音")
     self.soundButton:SetScript("OnClick", function()
         ChatFilter:ToggleSound()
+    end)
+    
+    -- "锁定"按钮
+    self.lockButton = CreateFrame("CheckButton", nil, self.frame, "InterfaceOptionsCheckButtonTemplate")
+    self.lockButton.text:SetText("锁定")
+    self.lockButton:SetPoint("LEFT", self.soundButton, "RIGHT", self.soundButton.text:GetWidth() + 8, 0)
+    self.lockButton:SetChecked(ChatFilterDB.locked)
+    self.lockButton:SetScript("OnClick", function()
+        ChatFilter:ToggleLocked()
+    end)
+
+    -- "跳转到最新"按钮
+    self.latestButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
+    self.latestButton:SetText("跳转到最新")
+    self.latestButton:SetSize(self.latestButton:GetTextWidth() + 16, 22)
+    self.latestButton:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", -8, 4)
+    self.latestButton:SetScript("OnClick", function()
+        ChatFilter:ScrollToBottom()
     end)
 
     -- 缩放功能
     self.frame:SetResizable(true)
-    self.frame:SetResizeBounds(100, 100, 800, 800)
+    self.frame:SetResizeBounds(300, 200, 800, 800)
     self.resizeButton = CreateFrame("Button", nil, self.frame)
     self.resizeButton:SetSize(16, 16)
     self.resizeButton:SetPoint("BOTTOMRIGHT", self.frame, "BOTTOMRIGHT", 0, 0)
@@ -211,6 +225,12 @@ function ChatFilter:CreateFilterFrame()
         self:OnSizeChanged()
     end)
 
+    -- 锁定判断
+    if ChatFilterDB.locked then
+        self.frame:SetMovable(false)
+        self.resizeButton:Hide()
+    end
+
     -- 美化：使用 ElvUI 材质
     if ElvUI then
         -- 获取 ElvUI 的皮肤模块 (Skins)
@@ -222,7 +242,10 @@ function ChatFilter:CreateFilterFrame()
         S:HandleButton(self.clearButton)
         S:HandleButton(self.pauseButton)
         S:HandleCheckBox(self.soundButton)
+        S:HandleCheckBox(self.lockButton)
         S:HandleButton(self.latestButton)
+
+        self.minButton:SetTemplate("Transparent") -- 恢复最小化按钮的背景
     end
 
     self.frame:Hide()
@@ -288,7 +311,7 @@ function ChatFilter:ClearAllRecords()
     self:UpdateScrollState()
 
     -- 提示用户
-    Print("ChatFilter 已清除筛选记录。")
+    Print("ChatFilter 已清除所有记录。")
 end
 
 -- 注册事件
@@ -625,6 +648,26 @@ function ChatFilter:OnFrameMinimized()
     end
 end
 
+-- 锁定框架
+function ChatFilter:ToggleLocked()
+    ChatFilterDB.locked = not ChatFilterDB.locked
+
+    self.lockButton:SetChecked(ChatFilterDB.locked)
+
+    if ChatFilterDB.locked then
+        if self.resizeTimer then
+            self.resizeTimer:Cancel()
+        end
+        self.resizeButton:Hide()
+        self.frame:SetMovable(false)
+        Print("ChatFilter 已经锁定")
+    else
+        self.resizeButton:Show()
+        self.frame:SetMovable(true)
+        Print("ChatFilter 解除锁定")
+    end
+end
+
 -- 刷新过滤消息
 function ChatFilter:RefreshFilteredMessages()
     if not self.content then return end
@@ -752,6 +795,8 @@ SlashCmdList["CHATFILTER"] = function(msg)
     local command, arg = msg:match("^(%S*)%s*(.-)$")
     if command == "toggle" then
         ChatFilter:ToggleFrame()
+    elseif command == "lock" then
+        ChatFilter:ToggleLocked()
     elseif command == "list" then
         ChatFilter:ShowKeywordSets()
     elseif command == "sound" then
@@ -782,6 +827,7 @@ SlashCmdList["CHATFILTER"] = function(msg)
     else
         Print("ChatFilter 命令:")
         Print("  /cf toggle - 开启/关闭 ChatFilter")
+        Print("  /cf lock - 开启/关闭框架锁定")
         Print("  /cf sound - 开启/关闭音频提醒")
         Print("  /cf list - 显示所有关键词组合")
         Print("  /cf add <关键词组1>;<关键词组2>... - 添加关键词组合")
