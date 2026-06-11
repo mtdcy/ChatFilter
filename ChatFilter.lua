@@ -1,6 +1,3 @@
--- 在文件开头添加
-ChatFilterDB = ChatFilterDB or {}
-
 -- 兼容函数
 local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 
@@ -15,7 +12,6 @@ local ChatFilter = {
     lastMessages = {},  -- 用于存储每个发言者的最后一条消息
     enabled = false,  -- 总开关状态
     debugMode = true,  -- 调试模式
-    playSound = true, -- 默认开启音频提醒
    
     -- Buttons
     minButton = nil,
@@ -50,51 +46,8 @@ local function Print(message)
     SELECTED_CHAT_FRAME:AddMessage(message, 0.7, 0.7, 0)
 end
 
--- 初始化函数
+-- 初始化过滤框体: 此时 ChatFilterDB 并未加载
 function ChatFilter:Init()
-    -- 初始化数据库
-    ChatFilterDB.recentMessages = ChatFilterDB.recentMessages or {}
-    ChatFilterDB.locked = ChatFilterDB.locked or false
-
-    -- 加载数据库
-    self.enabled = ChatFilterDB.enabled or false
-    self:LoadKeywords()
-
-    -- 创建窗口
-    self:CreateFilterFrame()
-
-    -- 注册事件
-    self:RegisterEvents()
-
-    -- 清理旧消息
-    self:CleanOldMessages()
-
-    if self.enabled then
-        self.frame:Show()
-        self:RefreshFilteredMessages()
-    end
-    Print("ChatFilter v" .. self.version .. " 已加载。")
-    self:DebugKeywords()
-end
-
--- 加载关键词
-function ChatFilter:LoadKeywords()
-    if ChatFilterDB.keywords and #ChatFilterDB.keywords > 0 then
-        self.keywords = ChatFilterDB.keywords
-        Print("ChatFilter 已加载关键词")
-    else
-        -- 默认关键词
-        self.keywords = {
-            {{"MC", "风暴", "双龙"}, {"摸奖", "抽奖"}},
-        }
-        ChatFilterDB.keywords = self.keywords
-        Print("ChatFilter 加载默认关键词")
-    end
-    self:ShowKeywordSets()
-end
-
--- 创建过滤框体
-function ChatFilter:CreateFilterFrame()
     if self.frame then return end
 
     -- 主框体
@@ -105,7 +58,9 @@ function ChatFilter:CreateFilterFrame()
     self.frame:EnableMouse(true)
     self.frame:RegisterForDrag("LeftButton")
     self.frame:SetScript("OnDragStart", self.frame.StartMoving)
-    self.frame:SetScript("OnDragStop", self.frame.StopMovingOrSizing)
+    self.frame:SetScript("OnDragStop", function()
+        ChatFilter:OnFrameMoved()
+    end)
 
     -- 标题
     self.frame.title = self.frame:CreateFontString(nil, "OVERLAY")
@@ -173,7 +128,6 @@ function ChatFilter:CreateFilterFrame()
     self.soundButton = CreateFrame("CheckButton", nil, self.frame, "InterfaceOptionsCheckButtonTemplate")
     self.soundButton.text:SetText("声音")
     self.soundButton:SetPoint("LEFT", self.pauseButton, "RIGHT", 8, 0)
-    self.soundButton:SetChecked(self.playSound)
     self.soundButton:SetScript("OnClick", function()
         ChatFilter:ToggleSound()
     end)
@@ -182,7 +136,6 @@ function ChatFilter:CreateFilterFrame()
     self.lockButton = CreateFrame("CheckButton", nil, self.frame, "InterfaceOptionsCheckButtonTemplate")
     self.lockButton.text:SetText("锁定")
     self.lockButton:SetPoint("LEFT", self.soundButton, "RIGHT", self.soundButton.text:GetWidth() + 8, 0)
-    self.lockButton:SetChecked(ChatFilterDB.locked)
     self.lockButton:SetScript("OnClick", function()
         ChatFilter:ToggleLocked()
     end)
@@ -225,12 +178,6 @@ function ChatFilter:CreateFilterFrame()
         self:OnSizeChanged()
     end)
 
-    -- 锁定判断
-    if ChatFilterDB.locked then
-        self.frame:SetMovable(false)
-        self.resizeButton:Hide()
-    end
-
     -- 美化：使用 ElvUI 材质
     if ElvUI then
         -- 获取 ElvUI 的皮肤模块 (Skins)
@@ -249,6 +196,71 @@ function ChatFilter:CreateFilterFrame()
     end
 
     self.frame:Hide()
+
+    -- 注册事件
+    self:RegisterEvents()
+end
+
+-- 完成插件加载
+function ChatFilter:OnLoaded(addonName, ...)
+    if addonName == "ChatFilter" then
+        self:Init()
+
+        -- 初始化数据库
+        ChatFilterDB = ChatFilterDB or {}
+        ChatFilterDB.recentMessages = ChatFilterDB.recentMessages or {}
+        ChatFilterDB.locked = ChatFilterDB.locked or false
+        ChatFilterDB.locked = ChatFilterDB.playSound or false
+
+        -- 加载数据库
+        self.enabled = ChatFilterDB.enabled or false
+        self:LoadKeywords()
+
+        -- 清理旧消息
+        self:CleanOldMessages()
+
+        -- 同步界面元素状态
+        self.frame:SetMovable(true) -- 保证窗口能够移动到旧位置
+
+        if self.enabled then
+            self.frame:Show()
+            self:RefreshFilteredMessages()
+        end
+
+        if ChatFilterDB.pos then
+            self.frame:ClearAllPoints()
+            self.frame:SetPoint(ChatFilterDB.pos.point, UIParent, ChatFilterDB.pos.point, ChatFilterDB.pos.x, ChatFilterDB.pos.y)
+        end
+
+        self.soundButton:SetChecked(ChatFilterDB.playSound)
+        self.lockButton:SetChecked(ChatFilterDB.locked)
+        self:ScrollToBottom()
+
+        if ChatFilterDB.locked then
+            self.resizeButton:Hide()
+            self.frame:SetMovable(false)
+        else
+            self.frame:SetMovable(true)
+        end
+
+        Print("ChatFilter v" .. self.version .. " 已加载。")
+    end
+end
+
+-- 加载关键词
+function ChatFilter:LoadKeywords()
+    if ChatFilterDB.keywords and #ChatFilterDB.keywords > 0 then
+        self.keywords = ChatFilterDB.keywords
+        Print("ChatFilter 已加载关键词")
+    else
+        -- 默认关键词
+        self.keywords = {
+            {{"MC", "风暴", "双龙"}, {"摸奖", "抽奖"}},
+        }
+        ChatFilterDB.keywords = self.keywords
+        Print("ChatFilter 加载默认关键词")
+    end
+    self:ShowKeywordSets()
 end
 
 -- 更新窗口大小
@@ -262,10 +274,10 @@ function ChatFilter:OnSizeChanged()
         self.content:SetWidth(self.scrollFrame:GetWidth())
 
         -- 刷新消息显示
-        local playSound = self.playSound 
-        self.playSound = false      -- 临时关闭声音
+        local playSound = ChatFilterDB.playSound 
+        ChatFilterDB.playSound = false      -- 临时关闭声音
         self:RefreshFilteredMessages()
-        self.playSound = playSound  -- 恢复声音
+        ChatFilterDB.playSound = playSound  -- 恢复声音
     end)
 end
 
@@ -312,22 +324,6 @@ function ChatFilter:ClearAllRecords()
 
     -- 提示用户
     Print("ChatFilter 已清除所有记录。")
-end
-
--- 注册事件
-function ChatFilter:RegisterEvents()
-    local frame = CreateFrame("Frame")
-    frame:RegisterEvent("ADDON_LOADED")
-    frame:RegisterEvent("CHAT_MSG_CHANNEL")
-    frame:RegisterEvent("CHAT_MSG_YELL")
-    frame:RegisterEvent("CHAT_MSG_SAY")
-    frame:SetScript("OnEvent", function(_, event, ...)
-        if event == "ADDON_LOADED" then
-            self:OnAddonLoaded(...)
-        elseif self.enabled then
-            self:OnChatMessage(event, ...)
-        end
-    end)
 end
 
 -- 处理聊天消息
@@ -475,16 +471,20 @@ function ChatFilter:DisplayFilteredMessage(messageInfo)
     end
 
     -- 播放音频提醒
-    if self.playSound then
+    if ChatFilterDB.playSound then
         PlaySound(SOUNDKIT.TELL_MESSAGE)
     end
 end
 
 -- 添加一个新的命令来切换音频提醒
 function ChatFilter:ToggleSound()
-    self.playSound = not self.playSound
-    self.soundButton:SetChecked(self.playSound)
-    if self.playSound then
+    ChatFilterDB.playSound = not ChatFilterDB.playSound
+
+    if self.soundButton:GetChecked() ~= ChatFilterDB.playSound then
+        self.soundButton:SetChecked(ChatFilterDB.playSound)
+    end
+
+    if ChatFilterDB.playSound then
         Print("ChatFilter 声音提醒已开启")
     else
         Print("ChatFilter 声音提醒已关闭")
@@ -611,6 +611,18 @@ function ChatFilter:OnFrameClosed()
     Print("ChatFilter 已禁用")
 end
 
+-- 处理框体的位置
+function ChatFilter:OnFrameMoved()
+    self.frame:StopMovingOrSizing()
+
+    local point, _, _, x, y = self.frame:GetPoint()
+    ChatFilterDB.pos = { 
+        point = point,
+        x = x, 
+        y = y,
+    }
+end
+
 -- 处理暂停过滤消息
 function ChatFilter:OnFilterPaused()
     if self.enabled then
@@ -652,7 +664,9 @@ end
 function ChatFilter:ToggleLocked()
     ChatFilterDB.locked = not ChatFilterDB.locked
 
-    self.lockButton:SetChecked(ChatFilterDB.locked)
+    if self.lockButton:GetChecked() ~= ChatFilterDB.locked then
+        self.lockButton:SetChecked(ChatFilterDB.locked)
+    end
 
     if ChatFilterDB.locked then
         if self.resizeTimer then
@@ -762,28 +776,6 @@ function ChatFilter:RemoveKeywordSet(index)
     end
 end
 
--- 处理插件加载
-function ChatFilter:OnAddonLoaded(addonName)
-    if addonName == "ChatFilter" then
-        self:Init()
-    end
-end
-
--- 显示调试信息
-function ChatFilter:DebugKeywords()
-    Print("ChatFilter 关键词列表:")
-    self:ShowKeywordSets()
-
-    Print("ChatFilterDB 关键词列表:")
-    if not ChatFilterDB.keywords or #ChatFilterDB.keywords == 0 then
-        Print("  无关键词")
-    else
-        for i, keywordSet in ipairs(ChatFilterDB.keywords) do
-            Print("  " .. i .. ". " .. self:KeywordSetToString(keywordSet))
-        end
-    end
-end
-
 -- 添加 trim 函数
 function string.trim(s)
     return (s:gsub("^%s*(.-)%s*$", "%1"))
@@ -837,7 +829,23 @@ SlashCmdList["CHATFILTER"] = function(msg)
     end
 end
 
--- 初始化插件
+-- 注册事件
+function ChatFilter:RegisterEvents()
+    local frame = CreateFrame("Frame")
+    frame:RegisterEvent("ADDON_LOADED")
+    frame:RegisterEvent("CHAT_MSG_CHANNEL")
+    frame:RegisterEvent("CHAT_MSG_YELL")
+    frame:RegisterEvent("CHAT_MSG_SAY")
+    frame:SetScript("OnEvent", function(_, event, ...)
+        if event == "ADDON_LOADED" then
+            self:OnLoaded(...)
+        elseif self.enabled then
+            self:OnChatMessage(event, ...)
+        end
+    end)
+end
+
+-- 创建窗口
 ChatFilter:Init()
 
 -- vim:ft=lua:ts=4:sw=4
