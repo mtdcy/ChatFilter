@@ -193,6 +193,7 @@ function ChatFilter:Init()
         S:HandleButton(self.latestButton)
 
         self.minButton:SetTemplate("Transparent") -- 恢复最小化按钮的背景
+        self.minButton:SetSize(22, 22) -- 修复按钮大小
     end
 
     self.frame:Hide()
