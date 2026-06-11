@@ -17,7 +17,6 @@ local ChatFilter = {
     minButton = nil,
     clearButton = nil,
     soundButton = nil, -- 声音复选框
-    lockButton = nil,
     latestButton = nil,
     resizeButton = nil,
 }
@@ -132,14 +131,6 @@ function ChatFilter:Init()
         ChatFilter:ToggleSound()
     end)
     
-    -- "锁定"按钮
-    self.lockButton = CreateFrame("CheckButton", nil, self.frame, "InterfaceOptionsCheckButtonTemplate")
-    self.lockButton.text:SetText("锁定")
-    self.lockButton:SetPoint("LEFT", self.soundButton, "RIGHT", self.soundButton.text:GetWidth() + 8, 0)
-    self.lockButton:SetScript("OnClick", function()
-        ChatFilter:ToggleLocked()
-    end)
-
     -- "跳转到最新"按钮
     self.latestButton = CreateFrame("Button", nil, self.frame, "UIPanelButtonTemplate")
     self.latestButton:SetText("跳转到最新")
@@ -189,7 +180,6 @@ function ChatFilter:Init()
         S:HandleButton(self.clearButton)
         S:HandleButton(self.pauseButton)
         S:HandleCheckBox(self.soundButton)
-        S:HandleCheckBox(self.lockButton)
         S:HandleButton(self.latestButton)
 
         self.minButton:SetTemplate("Transparent") -- 恢复最小化按钮的背景
@@ -234,7 +224,6 @@ function ChatFilter:OnLoaded(addonName, ...)
         end
 
         self.soundButton:SetChecked(ChatFilterDB.playSound)
-        self.lockButton:SetChecked(ChatFilterDB.locked)
         self:ScrollToBottom()
 
         if ChatFilterDB.locked then
@@ -664,10 +653,6 @@ end
 -- 锁定框架
 function ChatFilter:ToggleLocked()
     ChatFilterDB.locked = not ChatFilterDB.locked
-
-    if self.lockButton:GetChecked() ~= ChatFilterDB.locked then
-        self.lockButton:SetChecked(ChatFilterDB.locked)
-    end
 
     if ChatFilterDB.locked then
         if self.resizeTimer then
